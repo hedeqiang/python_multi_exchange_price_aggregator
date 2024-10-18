@@ -19,6 +19,9 @@ The following exchanges are supported:
 - Kucoin
 - MEXC
 - Gate.io
+- Bybit
+- Kraken
+- Huobi
 
 ## Installation
 

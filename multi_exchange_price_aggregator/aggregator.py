@@ -11,7 +11,10 @@ class ExchangePriceAggregator:
         'okx': 'https://www.okx.com/api/v5/market/tickers?instType=SPOT',
         'kucoin': 'https://api.kucoin.com/api/v1/market/allTickers',
         'mexc': 'https://api.mexc.com/api/v3/ticker/price',
-        'gate': 'https://api.gateio.ws/api/v4/spot/tickers'
+        'gate': 'https://api.gateio.ws/api/v4/spot/tickers',
+        'kraken': 'https://api.kraken.com/0/public/Ticker',
+        'huobi': 'https://api.huobi.pro/market/tickers',
+        'bybit': 'https://api.bybit.com/v5/market/tickers?category=spot',
     }
 
     def __init__(self, exchanges_priority):
@@ -20,30 +23,83 @@ class ExchangePriceAggregator:
     def _filter_pairs(self, data, exchange, symbol_suffix):
         """Filter and return trading pairs with unified symbol format."""
         pairs = {}
-        if exchange == 'binance':
-            for item in data:
-                if item['symbol'].endswith(symbol_suffix):
-                    pairs[item['symbol']] = float(item['price'])
-        elif exchange == 'bitget':
-            for item in data['data']:
-                if item['symbol'].endswith(symbol_suffix):
-                    pairs[item['symbol'].upper()] = float(item['lastPr'])
-        elif exchange == 'okx':
-            for item in data['data']:
-                if item['instId'].endswith(f'-{symbol_suffix}'):
-                    pairs[item['instId'].replace(f'-{symbol_suffix}', symbol_suffix)] = float(item['last'])
-        elif exchange == 'kucoin':
-            for item in data['data']['ticker']:
-                if item['symbol'].endswith(f'-{symbol_suffix}') and item['last'] is not None:
-                    pairs[item['symbol'].replace(f'-{symbol_suffix}', symbol_suffix)] = float(item['last'])
-        elif exchange == 'mexc':
-            for item in data:
-                if item['symbol'].endswith(symbol_suffix):
-                    pairs[item['symbol']] = float(item['price'])
-        elif exchange == 'gate':
-            for item in data:
-                if item['currency_pair'].endswith(f'_{symbol_suffix}'):
-                    pairs[item['currency_pair'].replace(f'_{symbol_suffix}', symbol_suffix)] = float(item['last'])
+        try:
+            if exchange == 'binance':
+                for item in data:
+                    if item['symbol'].endswith(symbol_suffix) and item['price'] not in [None, '']:
+                        try:
+                            pairs[item['symbol']] = float(item['price'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['symbol']}: {item['price']}")
+
+            elif exchange == 'bitget':
+                for item in data.get('data', []):
+                    if item['symbol'].endswith(symbol_suffix) and item['lastPr'] not in [None, '']:
+                        try:
+                            pairs[item['symbol'].upper()] = float(item['lastPr'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['symbol']}: {item['lastPr']}")
+
+            elif exchange == 'okx':
+                for item in data.get('data', []):
+                    if item['instId'].endswith(f'-{symbol_suffix}') and item['last'] not in [None, '']:
+                        try:
+                            pairs[item['instId'].replace(f'-{symbol_suffix}', symbol_suffix)] = float(item['last'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['instId']}: {item['last']}")
+
+            elif exchange == 'kucoin':
+                for item in data.get('data', {}).get('ticker', []):
+                    if item['symbol'].endswith(f'-{symbol_suffix}') and item['last'] not in [None, '']:
+                        try:
+                            pairs[item['symbol'].replace(f'-{symbol_suffix}', symbol_suffix)] = float(item['last'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['symbol']}: {item['last']}")
+
+            elif exchange == 'mexc':
+                for item in data:
+                    if item['symbol'].endswith(symbol_suffix) and item['price'] not in [None, '']:
+                        try:
+                            pairs[item['symbol']] = float(item['price'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['symbol']}: {item['price']}")
+
+            elif exchange == 'gate':
+                for item in data:
+                    if item['currency_pair'].endswith(f'_{symbol_suffix}') and item['last'] not in [None, '']:
+                        try:
+                            pairs[item['currency_pair'].replace(f'_{symbol_suffix}', symbol_suffix)] = float(
+                                item['last'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['currency_pair']}: {item['last']}")
+
+            elif exchange == 'kraken':
+                for pair, info in data.get('result', {}).items():
+                    if pair.endswith(symbol_suffix):
+                        try:
+                            pairs[pair.replace(f'X{symbol_suffix}', symbol_suffix)] = float(info['c'][0])
+                        except (KeyError, ValueError, IndexError):
+                            print(f"Invalid price data for {pair}: {info}")
+
+            elif exchange == 'huobi':
+                for item in data.get('data', []):
+                    if item['symbol'].endswith(symbol_suffix.lower()) and item['close'] not in [None, '']:
+                        try:
+                            pairs[item['symbol'].upper()] = float(item['close'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['symbol']}: {item['close']}")
+
+            elif exchange == 'bybit':
+                for item in data.get('result', {}).get('list', []):
+                    if item['symbol'].endswith(symbol_suffix) and item['lastPrice'] not in [None, '']:
+                        try:
+                            pairs[item['symbol']] = float(item['lastPrice'])
+                        except ValueError:
+                            print(f"Invalid price data for {item['symbol']}: {item['lastPrice']}")
+
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"Error processing data for {exchange}: {e}")
+
         return pairs
 
     def _fetch_exchange_data(self, session, exchange):
