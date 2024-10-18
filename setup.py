@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="multi_exchange_price_aggregator",
-    version="0.1.0",
+    version="0.1.1",
     author="hedeqiang",
     author_email="laravel_code@163.com",
     description="A package for aggregating cryptocurrency prices from multiple exchanges.",
